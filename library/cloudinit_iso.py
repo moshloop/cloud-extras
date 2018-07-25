@@ -10,14 +10,17 @@ options:
     dest:
         required: True
         description: ['']
-    content:
+    user:
+        required: True
+        description: ['']
+    meta:
         required: True
         description: ['']
 '''
 EXAMPLES = '''
      - cloudinit_iso:
           dest: /tmp/cloudinit.iso
-          content: |
+          user: |
             "
 '''
 import os.path
@@ -38,7 +41,8 @@ from tempfile import gettempdir
 def main():
     arg_spec = dict(
         dest=dict(required=True),
-        content=dict(required=True)
+        user=dict(required=True),
+        meta=dict(required=False),
     )
     module = AnsibleModule(
         argument_spec=arg_spec,
@@ -47,15 +51,17 @@ def main():
 
     tmp = os.path.join(gettempdir(), '{}'.format(hash(os.times())))
     logger.info("Writing temp user-data.txt: " + tmp)
-
-
     os.makedirs(tmp)
 
     with open(tmp + "/user-data", 'w') as f:
-        f.write(module.params['content'])
+        f.write(module.params['user'])
     with open(tmp + "/meta-data", "w") as f:
-        f.write('instance-id: iid-123456')
-        f.write('local-hostname: cloudy')
+        f.write('instance-id: iid-123456\n')
+
+        if 'meta' in module.params and module.params['meta'] is not None:
+            f.write(module.params['meta'])
+        else:
+            f.write('local-hostname: cloudy')
 
     check_call("genisoimage -output %s -volid cidata -joliet -rock user-data meta-data" % module.params['dest'], shell=True,cwd=tmp)
 
